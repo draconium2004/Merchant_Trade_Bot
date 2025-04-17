@@ -1,7 +1,5 @@
-python-telegram-bot==20.7
-requests
-python-dotenv
+yfinance
 pandas
-ccxt
-alpha_vantage
-ta
+scikit-learn
+numpy
+python-telegram-bot
