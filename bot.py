@@ -1,5 +1,5 @@
-# main.py or bot.py
-import time
+# bot.py or main.py
+
 from signal_generator import get_trade_signal
 from telegram import Bot
 
@@ -20,7 +20,5 @@ def check_and_alert():
         )
         bot.send_message(CHAT_ID, text)
 
-# Loop forever (every 1 hour)
-while True:
+if __name__ == "__main__":
     check_and_alert()
-    time.sleep(3600)
