@@ -1,6 +1,1 @@
-python-dotenv
-python-telegram-bot==20.0
-ccxt
-alpha_vantage
-pandas
-ta
+python-telegram-bot==20.7
