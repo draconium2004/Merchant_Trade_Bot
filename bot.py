@@ -1,44 +1,24 @@
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from config import TELEGRAM_TOKEN
-from fetcher import DataFetcher
-from analyzer import AnalysisEngine
-from signal_generator import SignalGenerator
-import asyncio
+# bot.py
+from telegram import Bot
+from signal_generator import get_trade_signal
 
-fetcher = DataFetcher()
-analyzer = AnalysisEngine()
-signal_gen = SignalGenerator()
+TELEGRAM_TOKEN = '…'
+bot = Bot(token=TELEGRAM_TOKEN)
+CHAT_ID    = '@your_channel_or_group'
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Welcome to the Trading Bot!")
+MONITORED = ['BTCUSDT','ETHUSDT','SOLUSDT']  # expand as desired
 
-async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    df = fetcher.fetch_ohlcv()
-    analyzed = analyzer.analyze(df)
-    signal = signal_gen.generate_signal(analyzed)
+def check_and_alert():
+    for sym in MONITORED:
+        sig = get_trade_signal(sym)
+        if sig:
+            text = (
+                f"{sig['side']} {sig['symbol']} @ {sig['price']}\n"
+                f"SL: {sig['sl']}  TP: {sig['tp']}\n"
+                f"Confidence: {sig['confidence']:.2f}"
+            )
+            bot.send_message(CHAT_ID, text)
 
-    if signal:
-        msg = f"""
-*Signal Detected:*
-Action: {signal['action']}
-Pair: {signal['symbol']}
-Entry: {signal['entry']:.2f}
-SL: {signal['sl']:.2f}
-TP: {signal['tp']:.2f}
-        """
-        await update.message.reply_text(msg, parse_mode='Markdown')
-    else:
-        await update.message.reply_text("No signal right now.")
-
-app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("signal", signal))
-
-async def hourly_job():
-    while True:
-        # Send signal to your chat ID (or broadcast logic)
-        # (We can fetch chat ID dynamically or store in DB)
-        await asyncio.sleep(3600)
-
-app.run_polling()
+if __name__ == "__main__":
+    # schedule this every hour (e.g. via APScheduler or a cron job)
+    check_and_alert()
