@@ -1,26 +1,22 @@
 # signal_generator.py
 import pandas as pd
+import yfinance as yf
 from models.rf_model import generate_signal
 
-def fetch_latest_ohlcv(symbol: str, limit: int = 100) -> pd.DataFrame:
-    """
-    Replace this stub with your exchange API client.
-    Must return a DataFrame indexed by timestamp with
-    ['open','high','low','close','volume'].
-    """
-    # e.g. return binance_client.get_klines(symbol, interval='1h', limit=limit)
-    pass
+# Only EUR/USD
+_YF_MAP = {
+    'EUR/USD': 'EURUSD=X',
+}
 
-def sl_tp_levels(last_close: float, df_ohlcv: pd.DataFrame) -> dict:
-    """
-    Example: use ATR for volatility‐based SL/TP.
-    """
-    high_low = df_ohlcv['high'] - df_ohlcv['low']
-    atr = high_low.rolling(14).mean().iloc[-1]
-    return {
-        'sl': round(last_close - 1.5 * atr, 4),
-        'tp': round(last_close + 2   * atr, 4)
-    }
+def fetch_latest_ohlcv(symbol: str, period: str = '5d', interval: str = '1h') -> pd.DataFrame:
+    yf_ticker = _YF_MAP[symbol]  # now only 'EUR/USD'
+    df = yf.download(yf_ticker, period=period, interval=interval, progress=False)
+    df = df.rename(columns={
+        'Open':'open','High':'high','Low':'low','Close':'close','Volume':'volume'
+    })[['open','high','low','close','volume']]
+    return df
+
+# sl_tp_levels() stays the same
 
 def get_trade_signal(symbol: str):
     df = fetch_latest_ohlcv(symbol)
