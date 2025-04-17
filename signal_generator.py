@@ -1,35 +1,36 @@
-# signal_generator.py
-import pandas as pd
 import yfinance as yf
-from models.rf_model import generate_signal
+import pandas as pd
 
-# Only EUR/USD
-_YF_MAP = {
-    'EUR/USD': 'EURUSD=X',
-}
+def get_trade_signal(symbol):
+    try:
+        df = yf.download(symbol, period="1mo", interval="1h", progress=False)
 
-def fetch_latest_ohlcv(symbol: str, period: str = '5d', interval: str = '1h') -> pd.DataFrame:
-    yf_ticker = _YF_MAP[symbol]  # now only 'EUR/USD'
-    df = yf.download(yf_ticker, period=period, interval=interval, progress=False)
-    df = df.rename(columns={
-        'Open':'open','High':'high','Low':'low','Close':'close','Volume':'volume'
-    })[['open','high','low','close','volume']]
-    return df
+        if df is None or df.empty:
+            print(f"[WARN] No data returned for {symbol}")
+            return None
 
-# sl_tp_levels() stays the same
+        # Simple Moving Average Crossover Strategy
+        df['SMA_20'] = df['Close'].rolling(window=20).mean()
+        df['SMA_50'] = df['Close'].rolling(window=50).mean()
 
-def get_trade_signal(symbol: str):
-    df = fetch_latest_ohlcv(symbol)
-    out = generate_signal(df)
-    if out['signal'] == 0:
+        # Last two rows for crossover detection
+        if df[['SMA_20', 'SMA_50']].isnull().values.any():
+            return None  # Not enough data yet
+
+        latest = df.iloc[-1]
+        previous = df.iloc[-2]
+
+        # BUY Signal: Short MA crosses above Long MA
+        if previous['SMA_20'] < previous['SMA_50'] and latest['SMA_20'] > latest['SMA_50']:
+            return {'signal': 1, 'price': latest['Close'], 'strategy': 'SMA_Crossover'}
+
+        # SELL Signal: Short MA crosses below Long MA
+        elif previous['SMA_20'] > previous['SMA_50'] and latest['SMA_20'] < latest['SMA_50']:
+            return {'signal': -1, 'price': latest['Close'], 'strategy': 'SMA_Crossover'}
+
+        # HOLD/No signal
+        return {'signal': 0, 'price': latest['Close'], 'strategy': 'SMA_Crossover'}
+
+    except Exception as e:
+        print(f"[ERROR] Signal generation failed for {symbol}: {e}")
         return None
-    last_price = df['close'].iloc[-1]
-    levels = sl_tp_levels(last_price, df)
-    return {
-        'symbol': symbol,
-        'side':   'BUY' if out['signal']==1 else 'SELL',
-        'price':  last_price,
-        'sl':     levels['sl'],
-        'tp':     levels['tp'],
-        'confidence': out['prob_up']
-    }
