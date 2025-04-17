@@ -15,6 +15,8 @@ def get_trade_signal(symbol):
             print(f"[WARN] No data returned for {symbol}")
             return None
 
+        # Your strategy continues here...
+
         # Simple Moving Average Crossover Strategy
         df['SMA_20'] = df['Close'].rolling(window=20).mean()
         df['SMA_50'] = df['Close'].rolling(window=50).mean()
