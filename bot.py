@@ -1,4 +1,4 @@
-# bot.py (excerpt)
+# bot.py
 from telegram import Bot
 from signal_generator import get_trade_signal
 
@@ -13,7 +13,7 @@ def check_and_alert():
         if not sig:
             continue
 
-        # Pick the right emoji
+        # 🟢 for BUY, 🔴 for SELL
         icon = '🟢' if sig['side'] == 'BUY' else '🔴'
 
         text = (
