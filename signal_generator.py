@@ -1,8 +1,9 @@
-import yfinance as yf
-import pandas as pd
-
 def get_trade_signal(symbol):
     try:
+        # Fix: remap EUR/USD to Yahoo's symbol format
+        if symbol == "EUR/USD":
+            symbol = "EURUSD=X"
+
         df = yf.download(symbol, period="1mo", interval="1h", progress=False)
 
         if df is None or df.empty:
