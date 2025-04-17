@@ -6,8 +6,12 @@ import logging
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 
-# Config
-TOKEN = "YOUR_BOT_TOKEN"
+import os
+
+# Get token from environment variable
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+if not TOKEN:
+    raise ValueError("TELEGRAM_BOT_TOKEN environment variable is not set")
 CHAT_ID = "@your_channel"
 MONITORED = ["EUR/USD"]
 
