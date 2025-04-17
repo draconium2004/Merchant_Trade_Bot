@@ -5,7 +5,9 @@ from signal_generator import get_trade_signal
 TELEGRAM_TOKEN = '…'
 bot = Bot(token=TELEGRAM_TOKEN)
 CHAT_ID    = '@your_channel_or_group'
-MONITORED  = ['BTCUSDT','ETHUSDT','SOLUSDT']
+
+# Only EUR/USD
+MONITORED  = ['EUR/USD']
 
 def check_and_alert():
     for sym in MONITORED:
@@ -13,12 +15,10 @@ def check_and_alert():
         if not sig:
             continue
 
-        # 🟢 for BUY, 🔴 for SELL
-        icon = '🟢' if sig['side'] == 'BUY' else '🔴'
-
+        icon = '🟢' if sig['side']=='BUY' else '🔴'
         text = (
-            f"{icon} {sig['side']} {sig['symbol']} @ {sig['price']:.2f}\n"
-            f"SL: {sig['sl']:.2f}   TP: {sig['tp']:.2f}\n"
+            f"{icon} {sig['side']} {sig['symbol']} @ {sig['price']:.4f}\n"
+            f"SL: {sig['sl']:.4f}   TP: {sig['tp']:.4f}\n"
             f"Confidence: {sig['confidence']:.2f}"
         )
         bot.send_message(CHAT_ID, text)
