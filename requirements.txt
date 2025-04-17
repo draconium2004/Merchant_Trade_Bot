@@ -1,5 +1,8 @@
-yfinance
+finance
 pandas
 scikit-learn
 numpy
 python-telegram-bot==13.7
+urllib3==1.26.15
+requests==2.28.2
+six>=1.10
