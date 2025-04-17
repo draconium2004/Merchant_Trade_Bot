@@ -1,24 +1,43 @@
-# bot.py or main.py
-
 from signal_generator import get_trade_signal
-from telegram import Bot
+from telegram import Bot, Update
+from telegram.ext import Updater, CommandHandler, CallbackContext
+import logging
 
-bot = Bot(token="YOUR_BOT_TOKEN")
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+
+# Config
+TOKEN = "YOUR_BOT_TOKEN"
 CHAT_ID = "@your_channel"
 MONITORED = ["EUR/USD"]
 
+# Setup bot and updater
+bot = Bot(token=TOKEN)
+updater = Updater(token=TOKEN, use_context=True)
+dispatcher = updater.dispatcher
+
+# START command handler
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text("Draco Tower is online and monitoring the market!")
+
+# Register /start command
+dispatcher.add_handler(CommandHandler("start", start))
+
+# Function to check and alert
 def check_and_alert():
     for sym in MONITORED:
         sig = get_trade_signal(sym)
         if not sig:
             continue
-        icon = '🟢' if sig['side'] == 'BUY' else '🔴'
+        icon = '🟢' if sig['signal'] == 1 else '🔴' if sig['signal'] == -1 else '⚪️'
         text = (
-            f"{icon} {sig['side']} {sig['symbol']} @ {sig['price']:.4f}\n"
-            f"SL: {sig['sl']:.4f}   TP: {sig['tp']:.4f}\n"
-            f"Confidence: {sig['confidence']:.2f}"
+            f"{icon} Signal for {sym} @ {sig['price']:.4f}\n"
+            f"Strategy: {sig['strategy']}"
         )
         bot.send_message(CHAT_ID, text)
 
+# Run the bot
 if __name__ == "__main__":
-    check_and_alert()
+    check_and_alert()  # Optional: Run alert once on startup
+    updater.start_polling()
+    updater.idle()
