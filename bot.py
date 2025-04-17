@@ -4,7 +4,6 @@ import logging
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-
 from config import TELEGRAM_TOKEN
 from fetcher import DataFetcher
 from analyzer import AnalysisEngine
