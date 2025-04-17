@@ -4,3 +4,4 @@ python-dotenv
 pandas
 ccxt
 alpha_vantage
+ta
