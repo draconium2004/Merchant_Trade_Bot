@@ -1,4 +1,8 @@
-def get_trade_signal(symbol):
+def map_yahoo_symbol(symbol):
+    if '/' in symbol:
+        return symbol.replace('/', '') + "=X"
+    return symbol
+    def get_trade_signal(symbol):
     try:
         # Fix: remap EUR/USD to Yahoo's symbol format
         if symbol == "EUR/USD":
