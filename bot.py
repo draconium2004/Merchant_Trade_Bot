@@ -1,7 +1,7 @@
 import logging
 import requests
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
 import datetime
 
 # Set up logging
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 ALPHA_VANTAGE_API_KEY = "63SF5BK099IJ0R42"
 
 # Function to get forex data from Alpha Vantage
-async def get_forex_data(from_currency='EUR', to_currency='USD'):
+def get_forex_data(from_currency='EUR', to_currency='USD'):
     try:
         # For real-time exchange rate
         url = f'https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency={from_currency}&to_currency={to_currency}&apikey={ALPHA_VANTAGE_API_KEY}'
@@ -78,8 +78,8 @@ async def get_forex_data(from_currency='EUR', to_currency='USD'):
         return f"Error fetching {from_currency}/{to_currency} rate: {str(e)}"
 
 # Command handlers
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text(
         'Hello! I am your forex bot powered by Alpha Vantage.\n\n'
         'Commands:\n'
         '/forex EUR USD - Get EUR/USD exchange rate\n'
@@ -87,7 +87,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Or just type: forex EUR USD'
     )
 
-async def forex_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def forex_command(update: Update, context: CallbackContext):
     from_currency = 'EUR'  # Default from currency
     to_currency = 'USD'    # Default to currency
     
@@ -95,11 +95,11 @@ async def forex_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from_currency = context.args[0].upper()
         to_currency = context.args[1].upper()
     
-    await update.message.reply_text(f"Fetching data for {from_currency}/{to_currency}...")
-    result = await get_forex_data(from_currency, to_currency)
-    await update.message.reply_text(result)
+    update.message.reply_text(f"Fetching data for {from_currency}/{to_currency}...")
+    result = get_forex_data(from_currency, to_currency)
+    update.message.reply_text(result)
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def handle_message(update: Update, context: CallbackContext):
     text = update.message.text.lower()
     if text.startswith('forex '):
         parts = text.split()
@@ -110,27 +110,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from_currency = parts[1].upper()
             to_currency = parts[2].upper()
         
-        await update.message.reply_text(f"Fetching data for {from_currency}/{to_currency}...")
-        result = await get_forex_data(from_currency, to_currency)
-        await update.message.reply_text(result)
+        update.message.reply_text(f"Fetching data for {from_currency}/{to_currency}...")
+        result = get_forex_data(from_currency, to_currency)
+        update.message.reply_text(result)
     else:
-        await update.message.reply_text(
+        update.message.reply_text(
             "I'm your forex bot. Use /forex EUR USD to get exchange rate data or simply type: forex EUR USD"
         )
 
 # Function to send daily updates to subscribed users
-async def send_daily_update(context: ContextTypes.DEFAULT_TYPE):
+def send_daily_update(context: CallbackContext):
     job = context.job
-    chat_id = job.chat_id
-    currency_pair = job.data
+    chat_id = job.context['chat_id']
+    currency_pair = job.context['pair']
     
     from_currency, to_currency = currency_pair.split('/')
-    result = await get_forex_data(from_currency, to_currency)
+    result = get_forex_data(from_currency, to_currency)
     
-    await context.bot.send_message(chat_id=chat_id, text=f"📊 Daily Update 📊\n\n{result}")
+    context.bot.send_message(chat_id=chat_id, text=f"📊 Daily Update 📊\n\n{result}")
 
 # Command to subscribe to daily updates
-async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def subscribe(update: Update, context: CallbackContext):
     chat_id = update.effective_chat.id
     
     from_currency = 'EUR'
@@ -150,17 +150,16 @@ async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Schedule a job to send updates daily at 9:00 AM
     context.job_queue.run_daily(
         send_daily_update,
-        time=datetime.time(hour=9, minute=0, second=0),
+        datetime.time(hour=9, minute=0, second=0),
         days=(0, 1, 2, 3, 4, 5, 6),  # All days of the week
-        chat_id=chat_id,
-        name=f"{chat_id}_{currency_pair}",
-        data=currency_pair
+        context={'chat_id': chat_id, 'pair': currency_pair},
+        name=f"{chat_id}_{currency_pair}"
     )
     
-    await update.message.reply_text(f"You are now subscribed to daily updates for {currency_pair}. You will receive updates every day at 9:00 AM.")
+    update.message.reply_text(f"You are now subscribed to daily updates for {currency_pair}. You will receive updates every day at 9:00 AM.")
 
 # Command to unsubscribe from daily updates
-async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def unsubscribe(update: Update, context: CallbackContext):
     chat_id = update.effective_chat.id
     
     if context.args and len(context.args) >= 2:
@@ -173,29 +172,35 @@ async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for job in current_jobs:
             job.schedule_removal()
         
-        await update.message.reply_text(f"You are now unsubscribed from daily updates for {currency_pair}.")
+        update.message.reply_text(f"You are now unsubscribed from daily updates for {currency_pair}.")
     else:
         # Remove all jobs for this chat_id
         for job in context.job_queue.jobs():
-            if job.name.startswith(f"{chat_id}_"):
+            if hasattr(job, 'name') and job.name and job.name.startswith(f"{chat_id}_"):
                 job.schedule_removal()
         
-        await update.message.reply_text("You are now unsubscribed from all daily updates.")
+        update.message.reply_text("You are now unsubscribed from all daily updates.")
 
 def main():
-    # Create the Application
-    application = Application.builder().token("YOUR_TELEGRAM_BOT_TOKEN").build()
+    # Create the Updater
+    updater = Updater("YOUR_TELEGRAM_BOT_TOKEN")
+    
+    # Get the dispatcher to register handlers
+    dispatcher = updater.dispatcher
 
     # Add handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("forex", forex_command))
-    application.add_handler(CommandHandler("subscribe", subscribe))
-    application.add_handler(CommandHandler("unsubscribe", unsubscribe))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("forex", forex_command))
+    dispatcher.add_handler(CommandHandler("subscribe", subscribe))
+    dispatcher.add_handler(CommandHandler("unsubscribe", unsubscribe))
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
     # Start the Bot
-    application.run_polling()
+    updater.start_polling()
     logging.info("Bot started")
+    
+    # Run the bot until you press Ctrl-C
+    updater.idle()
 
 if __name__ == '__main__':
     main()
