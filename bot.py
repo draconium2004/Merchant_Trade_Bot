@@ -183,7 +183,7 @@ def unsubscribe(update: Update, context: CallbackContext):
 
 def main():
     # Create the Updater
-    updater = Updater("YOUR_TELEGRAM_BOT_TOKEN")
+    updater = Updater("8073785433:AAFcAX4mW8Qc8tC9QrIfqwYRf44LZBnXKP0")
     
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
