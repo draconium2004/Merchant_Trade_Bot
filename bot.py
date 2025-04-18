@@ -80,7 +80,7 @@ def get_forex_data(from_currency='EUR', to_currency='USD'):
 # Command handlers
 def start(update: Update, context: CallbackContext):
     update.message.reply_text(
-        'Hello! I am your forex bot powered by Alpha Vantage.\n\n'
+        'Hello! I am Merchant forex bot powered by Alpha Vantage.\n\n'
         'Commands:\n'
         '/forex EUR USD - Get EUR/USD exchange rate\n'
         '/forex GBP JPY - Get GBP/JPY exchange rate\n'
