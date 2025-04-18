@@ -18,8 +18,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # API keys - replace with your actual keys
-ALPHA_VANTAGE_API_KEY = "63SF5BK099IJ0R42"
-TELEGRAM_BOT_TOKEN = "8073785433:AAFcAX4mW8Qc8tC9QrIfqwYRf44LZBnXKP0"
+ALPHA_VANTAGE_API_KEY = os.environ.get("ALPHA_VANTAGE_API_KEY")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
 # Function to get forex data from Alpha Vantage
 def get_forex_data(from_currency='EUR', to_currency='USD', interval='5min', output_size='full'):
