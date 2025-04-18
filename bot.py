@@ -25,10 +25,23 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 # Function to get forex data from Alpha Vantage
 def get_forex_data(from_currency='EUR', to_currency='USD', interval='5min', output_size='full'):
     try:
+        # First try with FX_INTRADAY endpoint
         time_series_url = f'https://www.alphavantage.co/query?function=FX_INTRADAY&from_symbol={from_currency}&to_symbol={to_currency}&interval={interval}&outputsize={output_size}&apikey={ALPHA_VANTAGE_API_KEY}'
         time_series_response = requests.get(time_series_url)
         time_series_data = time_series_response.json()
         
+        # Check for API error messages
+        if "Error Message" in time_series_data:
+            logger.error(f"Alpha Vantage API Error: {time_series_data['Error Message']}")
+            return None
+            
+        # Check for API call limits
+        if "Note" in time_series_data and "call frequency" in time_series_data["Note"]:
+            logger.warning(f"Alpha Vantage API limit reached: {time_series_data['Note']}")
+            time.sleep(60)  # Wait a minute before retrying
+            return get_forex_data(from_currency, to_currency, interval, output_size)
+        
+        # Process the data if available
         if "Time Series FX" in time_series_data:
             # Convert to DataFrame
             raw_data = time_series_data[f"Time Series FX ({interval})"]
@@ -46,14 +59,35 @@ def get_forex_data(from_currency='EUR', to_currency='USD', interval='5min', outp
             df = df.sort_index()
             
             return df
-        else:
-            error_message = time_series_data.get("Error Message", "Unknown error")
-            logger.error(f"Error in get_forex_data: {error_message}")
-            return None
-    except Exception as e:
-        logger.error(f"Error in get_forex_data: {str(e)}")
+        
+        # If FX_INTRADAY didn't work, try CURRENCY_EXCHANGE_RATE as fallback
+        logger.warning(f"FX_INTRADAY failed for {from_currency}/{to_currency}. Trying CURRENCY_EXCHANGE_RATE as fallback.")
+        exchange_rate_url = f'https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency={from_currency}&to_currency={to_currency}&apikey={ALPHA_VANTAGE_API_KEY}'
+        exchange_rate_response = requests.get(exchange_rate_url)
+        exchange_rate_data = exchange_rate_response.json()
+        
+        if "Realtime Currency Exchange Rate" in exchange_rate_data:
+            # Create a minimal dataframe with just the current rate
+            current_time = pd.Timestamp.now()
+            rate = float(exchange_rate_data["Realtime Currency Exchange Rate"]["5. Exchange Rate"])
+            
+            # Create a simple dataframe with the current rate
+            df = pd.DataFrame({
+                'open': [rate],
+                'high': [rate],
+                'low': [rate],
+                'close': [rate]
+            }, index=[current_time])
+            
+            logger.info(f"Created fallback dataframe with current exchange rate for {from_currency}/{to_currency}")
+            return df
+        
+        logger.error(f"All methods failed to get data for {from_currency}/{to_currency}. Response: {time_series_data}")
         return None
-
+        
+    except Exception as e:
+        logger.error(f"Error in get_forex_data for {from_currency}/{to_currency}: {str(e)}")
+        return None
 # Technical indicators
 def add_technical_indicators(df):
     """Add technical indicators to the dataframe"""
