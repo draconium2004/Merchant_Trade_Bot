@@ -4,10 +4,11 @@ import pandas as pd
 import numpy as np
 import datetime
 import time
+import os  # Add this line
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
 import math
-import random  # Temporary for demo purposes
+import random
 
 # Set up logging
 logging.basicConfig(
