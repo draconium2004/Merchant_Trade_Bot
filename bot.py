@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import datetime
 import time
-import os  # Add this line
+import os
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
 import math
@@ -18,10 +18,10 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# API keys - 
+# API keys
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
-# Function to get forex data from Alpha Vantage
+# Function to get forex data from yfinance
 def get_forex_data(from_currency='EUR', to_currency='USD',
                    interval='15m', period='1d') -> pd.DataFrame:
     """
@@ -29,63 +29,40 @@ def get_forex_data(from_currency='EUR', to_currency='USD',
     interval: one of ['1m','2m','5m','15m','30m','60m','90m','1h','1d',...]
     period: e.g. '1d','5d','1mo','3mo'
     """
-    ticker = f"{from_currency}{to_currency}=X"
-    # yfinance handles retries internally; returns an empty df if symbol invalid
-    df = yf.download(
-        tickers=ticker,
-        period=period,
-        interval=interval,
-        progress=False,
-        auto_adjust=False,
-        threads=False
-    )
-    if df.empty:
-        logger.error(f"No data for {ticker} via yfinance.")
-        return None
+    try:
+        ticker = f"{from_currency}{to_currency}=X"
+        # yfinance handles retries internally; returns an empty df if symbol invalid
+        df = yf.download(
+            tickers=ticker,
+            period=period,
+            interval=interval,
+            progress=False,
+            auto_adjust=False,
+            threads=False
+        )
+        if df.empty:
+            logger.error(f"No data for {ticker} via yfinance.")
+            return None
 
-    # Standardize column names
-    df = df.rename(columns={
-        'Open':  'open',
-        'High':  'high',
-        'Low':   'low',
-        'Close': 'close',
-        'Volume':'volume'
-    })
+        # Standardize column names
+        df = df.rename(columns={
+            'Open':  'open',
+            'High':  'high',
+            'Low':   'low',
+            'Close': 'close',
+            'Volume':'volume'
+        })
 
-    # Ensure it's sorted ascending by timestamp
-    df.index = pd.to_datetime(df.index)
-    df = df.sort_index()
+        # Ensure it's sorted ascending by timestamp
+        df.index = pd.to_datetime(df.index)
+        df = df.sort_index()
 
-    return df
-        
-        # If FX_INTRADAY didn't work, try CURRENCY_EXCHANGE_RATE as fallback
-        logger.warning(f"FX_INTRADAY failed for {from_currency}/{to_currency}. Trying CURRENCY_EXCHANGE_RATE as fallback.")
-        exchange_rate_url = f'https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency={from_currency}&to_currency={to_currency}&apikey={ALPHA_VANTAGE_API_KEY}'
-        exchange_rate_response = requests.get(exchange_rate_url)
-        exchange_rate_data = exchange_rate_response.json()
-        
-        if "Realtime Currency Exchange Rate" in exchange_rate_data:
-            # Create a minimal dataframe with just the current rate
-            current_time = pd.Timestamp.now()
-            rate = float(exchange_rate_data["Realtime Currency Exchange Rate"]["5. Exchange Rate"])
-            
-            # Create a simple dataframe with the current rate
-            df = pd.DataFrame({
-                'open': [rate],
-                'high': [rate],
-                'low': [rate],
-                'close': [rate]
-            }, index=[current_time])
-            
-            logger.info(f"Created fallback dataframe with current exchange rate for {from_currency}/{to_currency}")
-            return df
-        
-        logger.error(f"All methods failed to get data for {from_currency}/{to_currency}. Response: {time_series_data}")
-        return None
-        
+        return df
+    
     except Exception as e:
         logger.error(f"Error in get_forex_data for {from_currency}/{to_currency}: {str(e)}")
         return None
+
 # Technical indicators
 def add_technical_indicators(df):
     """Add technical indicators to the dataframe"""
