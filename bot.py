@@ -1,5 +1,5 @@
 import logging
-import requests
+import yfinance as yf
 import pandas as pd
 import numpy as np
 import datetime
@@ -18,47 +18,45 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# API keys - replace with your actual keys
-ALPHA_VANTAGE_API_KEY = os.environ.get("ALPHA_VANTAGE_API_KEY")
+# API keys - 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
 # Function to get forex data from Alpha Vantage
-def get_forex_data(from_currency='EUR', to_currency='USD', interval='5min', output_size='full'):
-    try:
-        # First try with FX_INTRADAY endpoint
-        time_series_url = f'https://www.alphavantage.co/query?function=FX_INTRADAY&from_symbol={from_currency}&to_symbol={to_currency}&interval={interval}&outputsize={output_size}&apikey={ALPHA_VANTAGE_API_KEY}'
-        time_series_response = requests.get(time_series_url)
-        time_series_data = time_series_response.json()
-        
-        # Check for API error messages
-        if "Error Message" in time_series_data:
-            logger.error(f"Alpha Vantage API Error: {time_series_data['Error Message']}")
-            return None
-            
-        # Check for API call limits
-        if "Note" in time_series_data and "call frequency" in time_series_data["Note"]:
-            logger.warning(f"Alpha Vantage API limit reached: {time_series_data['Note']}")
-            time.sleep(60)  # Wait a minute before retrying
-            return get_forex_data(from_currency, to_currency, interval, output_size)
-        
-        # Process the data if available
-        if "Time Series FX" in time_series_data:
-            # Convert to DataFrame
-            raw_data = time_series_data[f"Time Series FX ({interval})"]
-            df = pd.DataFrame.from_dict(raw_data, orient='index')
-            
-            # Convert string values to float
-            for col in df.columns:
-                df[col] = df[col].astype(float)
-                
-            # Rename columns
-            df.columns = ['open', 'high', 'low', 'close']
-            
-            # Sort index by date
-            df.index = pd.to_datetime(df.index)
-            df = df.sort_index()
-            
-            return df
+def get_forex_data(from_currency='EUR', to_currency='USD',
+                   interval='15m', period='1d') -> pd.DataFrame:
+    """
+    Fetch intraday FX data via yfinance by mapping EUR/USD → 'EURUSD=X'.
+    interval: one of ['1m','2m','5m','15m','30m','60m','90m','1h','1d',...]
+    period: e.g. '1d','5d','1mo','3mo'
+    """
+    ticker = f"{from_currency}{to_currency}=X"
+    # yfinance handles retries internally; returns an empty df if symbol invalid
+    df = yf.download(
+        tickers=ticker,
+        period=period,
+        interval=interval,
+        progress=False,
+        auto_adjust=False,
+        threads=False
+    )
+    if df.empty:
+        logger.error(f"No data for {ticker} via yfinance.")
+        return None
+
+    # Standardize column names
+    df = df.rename(columns={
+        'Open':  'open',
+        'High':  'high',
+        'Low':   'low',
+        'Close': 'close',
+        'Volume':'volume'
+    })
+
+    # Ensure it's sorted ascending by timestamp
+    df.index = pd.to_datetime(df.index)
+    df = df.sort_index()
+
+    return df
         
         # If FX_INTRADAY didn't work, try CURRENCY_EXCHANGE_RATE as fallback
         logger.warning(f"FX_INTRADAY failed for {from_currency}/{to_currency}. Trying CURRENCY_EXCHANGE_RATE as fallback.")
@@ -277,7 +275,7 @@ def check_and_send_signals(context: CallbackContext):
         from_currency, to_currency = pair.split('/')
         
         # Get forex data
-        df = get_forex_data(from_currency, to_currency, interval='15min')
+        df = get_forex_data(from_currency, to_currency, interval='30m')
         if df is not None:
             # Add technical indicators
             df_with_indicators = add_technical_indicators(df)
@@ -320,7 +318,7 @@ def check_signals_command(update: Update, context: CallbackContext):
     update.message.reply_text(f"Checking for signals on {pair}...")
     
     # Get forex data
-    df = get_forex_data(from_currency, to_currency, interval='15min')
+    df = get_forex_data(from_currency, to_currency, interval='30m')
     if df is not None:
         # Add technical indicators
         df_with_indicators = add_technical_indicators(df)
